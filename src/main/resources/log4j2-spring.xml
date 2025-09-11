@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration>
+    <!-- Définition des propriétés, comme le format des logs -->
+    <Properties>
+        <Property name="LOG_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n</Property>
+    </Properties>
+
+    <!-- Définition des "Appenders" : où les logs doivent être écrits -->
+    <Appenders>
+        <!-- Appender pour la console -->
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+        </Console>
+
+        <!-- Appender pour un fichier qui "roule" (se renouvelle) -->
+        <RollingFile name="File"
+                     fileName="logs/gamegauge.log"
+                     filePattern="logs/gamegauge-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+            <Policies>
+                <!-- Roule le fichier chaque jour -->
+                <TimeBasedTriggeringPolicy/>
+                <!-- Ou si le fichier atteint 10 MB -->
+                <SizeBasedTriggeringPolicy size="10 MB"/>
+            </Policies>
+            <!-- Conserve un maximum de 10 fichiers de log archivés -->
+            <DefaultRolloverStrategy max="10"/>
+        </RollingFile>
+    </Appenders>
+
+    <!-- Définition des "Loggers" : quel niveau de log pour quel package -->
+    <Loggers>
+        <!-- Logger pour notre application GameGauge -->
+        <!-- On met le niveau DEBUG pour avoir des logs détaillés en développement -->
+        <Logger name="fr.gamegauge.gamegauge_api" level="debug" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="File"/>
+        </Logger>
+
+        <!-- Logger pour Spring Framework (pour réduire le bruit) -->
+        <Logger name="org.springframework" level="info" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="File"/>
+        </Logger>
+
+        <!-- Logger pour Hibernate (très verbeux, on le calme) -->
+        <Logger name="org.hibernate" level="warn" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="File"/>
+        </Logger>
+
+        <!-- Logger racine (Root) : le logger par défaut pour tout le reste -->
+        <Root level="info">
+            <AppenderRef ref="Console"/>
+        </Root>
+    </Loggers>
+
+</Configuration>

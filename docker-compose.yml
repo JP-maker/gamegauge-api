@@ -1,0 +1,36 @@
+# Version de la syntaxe Docker Compose
+version: '3.8'
+
+# Définition des services (conteneurs)
+services:
+  # Service pour la base de données MySQL
+  db:
+    image: mysql:8.0 # Utilise l'image officielle de MySQL version 8.0
+    container_name: gamegauge-mysql # Nom du conteneur pour le retrouver facilement
+    restart: unless-stopped # Redémarre le conteneur sauf s'il a été stoppé manuellement
+    environment:
+      MYSQL_DATABASE: 'gamegauge_db' # Nom de la base de données qui sera créée
+      MYSQL_USER: 'user' # REMPLACEZ par votre nom d'utilisateur
+      MYSQL_PASSWORD: 'userpass' # REMPLACEZ par votre mot de passe
+      MYSQL_ROOT_PASSWORD: 'roots' # REMPLACEZ par un mot de passe root sécurisé
+    ports:
+      - "3306:3306" # Mappe le port 3306 du conteneur au port 3306 de votre machine
+    volumes:
+      - gamegauge-data:/var/lib/mysql # Stocke les données de la BDD dans un volume Docker pour qu'elles persistent
+
+  # Service pour phpMyAdmin
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin # Utilise l'image officielle de phpMyAdmin
+    container_name: gamegauge-phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "8081:80" # Mappe le port 80 du conteneur au port 8081 de votre machine (pour éviter les conflits avec Spring qui tourne sur 8080)
+    environment:
+      PMA_HOST: 'db' # Indique à phpMyAdmin de se connecter au service nommé 'db'
+      PMA_PORT: 3306
+    depends_on:
+      - db # S'assure que le service 'db' est démarré avant de démarrer phpMyAdmin
+
+# Définition des volumes nommés
+volumes:
+  gamegauge-data: # Le volume pour la persistance des données de MySQL
