@@ -1,0 +1,13 @@
+package fr.gamegauge.gamegauge_api.dto.response;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.Setter;
+
+@Getter
+@Setter
+@AllArgsConstructor
+public class ParticipantResponse {
+    private Long id;
+    private String name;
+}

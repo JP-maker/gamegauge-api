@@ -7,6 +7,8 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Représente un tableau de scores.
@@ -34,7 +36,21 @@ public class Board {
     @JoinColumn(name = "owner_id", nullable = false) // Définit la colonne de la clé étrangère.
     private User owner;
 
-    // Nous ajouterons les autres champs (target_score, etc.) plus tard pour rester simple pour le moment.
+    /**
+     * La liste des participants associés à ce tableau de scores.
+     * C'est une relation Un-à-Plusieurs (un Board a plusieurs Participants).
+     * mappedBy = "board" indique que l'entité Participant gère la relation (via son champ "board").
+     * cascade = CascadeType.ALL signifie que les opérations (save, delete...) sur un Board
+     *   seront propagées à ses Participants.
+     * orphanRemoval = true signifie que si un Participant est retiré de cette liste, il sera
+     *   supprimé de la base de données.
+     */
+    @OneToMany(
+            mappedBy = "board",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
+    private List<Participant> participants = new ArrayList<>();
 
     @CreationTimestamp // Géré automatiquement par Hibernate.
     @Column(name = "created_at", updatable = false)
@@ -44,5 +60,14 @@ public class Board {
     @Column(name = "updated_at")
     private Instant updatedAt;
 
-    // Note : La relation avec les Participants et les ScoreEntries sera ajoutée dans les prochaines étapes.
+    // --- Méthodes utilitaires (bonne pratique) ---
+    public void addParticipant(Participant participant) {
+        participants.add(participant);
+        participant.setBoard(this);
+    }
+
+    public void removeParticipant(Participant participant) {
+        participants.remove(participant);
+        participant.setBoard(null);
+    }
 }
