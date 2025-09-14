@@ -1,18 +1,20 @@
 package fr.gamegauge.gamegauge_api.service;
 
-import fr.gamegauge.gamegauge_api.dto.request.BoardCreateRequest;
-import fr.gamegauge.gamegauge_api.dto.request.BoardUpdateRequest;
-import fr.gamegauge.gamegauge_api.dto.request.ParticipantAddRequest;
-import fr.gamegauge.gamegauge_api.dto.request.ParticipantUpdateRequest;
+import fr.gamegauge.gamegauge_api.dto.request.*;
 import fr.gamegauge.gamegauge_api.dto.response.BoardResponse;
 import fr.gamegauge.gamegauge_api.dto.response.ParticipantResponse;
+import fr.gamegauge.gamegauge_api.dto.response.ScoreEntryResponse;
 import fr.gamegauge.gamegauge_api.exception.ResourceNotFoundException;
 import fr.gamegauge.gamegauge_api.exception.UnauthorizedException;
+import fr.gamegauge.gamegauge_api.mapper.BoardMapper;
+import fr.gamegauge.gamegauge_api.mapper.ParticipantMapper;
 import fr.gamegauge.gamegauge_api.model.Board;
 import fr.gamegauge.gamegauge_api.model.Participant;
+import fr.gamegauge.gamegauge_api.model.ScoreEntry;
 import fr.gamegauge.gamegauge_api.model.User;
 import fr.gamegauge.gamegauge_api.repository.BoardRepository;
 import fr.gamegauge.gamegauge_api.repository.ParticipantRepository;
+import fr.gamegauge.gamegauge_api.repository.ScoreEntryRepository;
 import fr.gamegauge.gamegauge_api.repository.UserRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +39,9 @@ public class BoardService {
     private final BoardRepository boardRepository;
     private final UserRepository userRepository; // Pour retrouver l'utilisateur propriétaire.
     private final ParticipantRepository participantRepository;
+    private final ScoreEntryRepository scoreEntryRepository;
+    private final BoardMapper boardMapper;
+    private final ParticipantMapper participantMapper;
 
     /**
      * Crée un nouveau tableau de scores pour un utilisateur donné.
@@ -49,20 +54,21 @@ public class BoardService {
         logger.info("Tentative de création d'un tableau '{}' par l'utilisateur {}", request.getName(), userEmail);
 
         // 1. Retrouver l'utilisateur propriétaire.
-        User owner = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new UsernameNotFoundException("Utilisateur non trouvé : " + userEmail));
+        User owner = getUserByEmail(userEmail);
 
         // 2. Créer la nouvelle entité Board.
         Board board = new Board();
         board.setName(request.getName());
         board.setOwner(owner);
+        board.setTargetScore(request.getTargetScore());
+        board.setNumberOfRounds(request.getNumberOfRounds());
 
         // 3. Sauvegarder dans la base de données.
         Board savedBoard = boardRepository.save(board);
         logger.info("Tableau '{}' (ID: {}) créé avec succès.", savedBoard.getName(), savedBoard.getId());
 
         // 4. Mapper l'entité sauvegardée vers un DTO de réponse et le retourner.
-        return mapBoardToBoardResponse(savedBoard);
+        return boardMapper.toBoardResponse(savedBoard);
     }
 
     /**
@@ -73,15 +79,12 @@ public class BoardService {
      */
     public List<BoardResponse> getBoardsForUser(String userEmail) {
         logger.debug("Récupération des tableaux pour l'utilisateur {}", userEmail);
-        User owner = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new UsernameNotFoundException("Utilisateur non trouvé : " + userEmail));
+        User owner = getUserByEmail(userEmail);
 
         List<Board> boards = boardRepository.findByOwner(owner);
 
         // On mappe chaque entité Board en BoardResponse
-        return boards.stream()
-                .map(this::mapBoardToBoardResponse)
-                .collect(Collectors.toList());
+        return boardMapper.toBoardResponseList(boards);
     }
 
     /**
@@ -100,7 +103,7 @@ public class BoardService {
         Board board = boardRepository.findByIdAndOwner(boardId, user)
                 .orElseThrow(() -> new ResourceNotFoundException("Tableau non trouvé ou accès non autorisé. ID: " + boardId));
 
-        return mapBoardToBoardResponse(board);
+        return boardMapper.toBoardResponse(board);
     }
 
     /**
@@ -119,6 +122,9 @@ public class BoardService {
                 .orElseThrow(() -> new ResourceNotFoundException("Tableau non trouvé ou accès non autorisé. ID: " + boardId));
 
         board.setName(request.getName());
+        board.setTargetScore(request.getTargetScore());
+        board.setNumberOfRounds(request.getNumberOfRounds());
+
         Board updatedBoard = boardRepository.save(board);
         logger.info("Tableau ID {} mis à jour avec succès.", updatedBoard.getId());
 
@@ -172,7 +178,7 @@ public class BoardService {
 
         // On retourne le dernier participant ajouté
         Participant savedParticipant = board.getParticipants().get(board.getParticipants().size() - 1);
-        return new ParticipantResponse(savedParticipant.getId(), savedParticipant.getName());
+        return participantMapper.toParticipantResponse(savedParticipant);
     }
 
     /**
@@ -239,7 +245,119 @@ public class BoardService {
         logger.info("Participant ID {} mis à jour avec succès. Nouveau nom : {}",
                 savedParticipant.getId(), savedParticipant.getName());
 
-        return new ParticipantResponse(savedParticipant.getId(), savedParticipant.getName());
+        return participantMapper.toParticipantResponse(savedParticipant);
+    }
+
+    /**
+     * Ajoute une entrée de score pour un participant dans un tableau de scores.
+     *
+     * @param boardId       L'ID du tableau.
+     * @param participantId L'ID du participant.
+     * @param request       Les données du score à ajouter.
+     * @param userEmail     L'email de l'utilisateur qui effectue l'action.
+     * @return Le DTO de l'entrée de score nouvellement créée.
+     */
+    public ScoreEntryResponse addScoreToParticipant(Long boardId, Long participantId, ScoreEntryAddRequest request, String userEmail) {
+        logger.info("Tentative d'ajout d'un score (valeur: {}, tour: {}) pour le participant ID {} dans le tableau ID {}",
+                request.getScoreValue(), request.getRoundNumber(), participantId, boardId);
+
+        User user = getUserByEmail(userEmail);
+        Board board = boardRepository.findByIdAndOwner(boardId, user)
+                .orElseThrow(() -> new ResourceNotFoundException("Tableau non trouvé ou accès non autorisé. ID: " + boardId));
+
+        Participant participant = board.getParticipants().stream()
+                .filter(p -> p.getId().equals(participantId))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("Participant non trouvé dans ce tableau. ID: " + participantId));
+
+        ScoreEntry scoreEntry = new ScoreEntry();
+        scoreEntry.setScoreValue(request.getScoreValue());
+        scoreEntry.setRoundNumber(request.getRoundNumber());
+
+        // Utiliser la méthode d'aide pour lier le score au participant
+        participant.addScoreEntry(scoreEntry);
+
+        // Sauvegarder explicitement la nouvelle entrée de score
+        ScoreEntry savedScoreEntry = scoreEntryRepository.save(scoreEntry);
+        logger.info("Score (ID: {}) ajouté avec succès.", savedScoreEntry.getId());
+
+        return new ScoreEntryResponse(savedScoreEntry.getId(), savedScoreEntry.getScoreValue(), savedScoreEntry.getRoundNumber());
+    }
+
+    /**
+     * Met à jour une entrée de score spécifique.
+     *
+     * @param boardId       L'ID du tableau.
+     * @param participantId L'ID du participant.
+     * @param scoreId       L'ID de l'entrée de score à mettre à jour.
+     * @param request       Les nouvelles données du score.
+     * @param userEmail     L'email de l'utilisateur qui effectue l'action.
+     * @return Le DTO du score mis à jour.
+     */
+    public ScoreEntryResponse updateScore(Long boardId, Long participantId, Long scoreId, ScoreEntryUpdateRequest request, String userEmail) {
+        logger.info("Tentative de mise à jour du score ID {} (nouvelle valeur: {}, nouveau tour: {})",
+                scoreId, request.getScoreValue(), request.getRoundNumber());
+
+        User user = getUserByEmail(userEmail);
+        Board board = boardRepository.findByIdAndOwner(boardId, user)
+                .orElseThrow(() -> new ResourceNotFoundException("Tableau non trouvé ou accès non autorisé. ID: " + boardId));
+
+        Participant participant = board.getParticipants().stream()
+                .filter(p -> p.getId().equals(participantId))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("Participant non trouvé dans ce tableau. ID: " + participantId));
+
+        ScoreEntry scoreToUpdate = participant.getScoreEntries().stream()
+                .filter(s -> s.getId().equals(scoreId))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("Entrée de score non trouvée pour ce participant. ID: " + scoreId));
+
+        // Appliquer les modifications
+        scoreToUpdate.setScoreValue(request.getScoreValue());
+        scoreToUpdate.setRoundNumber(request.getRoundNumber());
+
+        // Sauvegarder l'entité mise à jour
+        ScoreEntry savedScore = scoreEntryRepository.save(scoreToUpdate);
+        logger.info("Score ID {} mis à jour avec succès.", savedScore.getId());
+
+        return new ScoreEntryResponse(savedScore.getId(), savedScore.getScoreValue(), savedScore.getRoundNumber());
+    }
+
+    /**
+     * Supprime une entrée de score spécifique d'un participant.
+     *
+     * @param boardId       L'ID du tableau.
+     * @param participantId L'ID du participant.
+     * @param scoreId       L'ID de l'entrée de score à supprimer.
+     * @param userEmail     L'email de l'utilisateur qui effectue l'action.
+     */
+    @Transactional // 1. AJOUTER L'ANNOTATION TRANSACTIONAL
+    public void deleteScoreFromParticipant(Long boardId, Long participantId, Long scoreId, String userEmail) {
+        logger.info("Tentative de suppression du score ID {} du participant ID {} dans le tableau ID {}",
+                scoreId, participantId, boardId);
+
+        User user = getUserByEmail(userEmail);
+        Board board = boardRepository.findByIdAndOwner(boardId, user)
+                .orElseThrow(() -> new ResourceNotFoundException("Tableau non trouvé ou accès non autorisé. ID: " + boardId));
+
+        Participant participant = board.getParticipants().stream()
+                .filter(p -> p.getId().equals(participantId))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("Participant non trouvé dans ce tableau. ID: " + participantId));
+
+        ScoreEntry scoreToDelete = participant.getScoreEntries().stream()
+                .filter(s -> s.getId().equals(scoreId))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("Entrée de score non trouvée pour ce participant. ID: " + scoreId));
+
+        // 2. MODIFIER LA LOGIQUE DE SUPPRESSION
+        // Au lieu de supprimer via le repository, on retire l'élément de la liste du parent.
+        // Grâce à orphanRemoval=true, Hibernate générera la requête DELETE pour nous.
+        participant.getScoreEntries().remove(scoreToDelete);
+
+        logger.info("Score ID {} supprimé avec succès.", scoreId);
+
+        // Pas besoin d'appeler de .save() ou .delete(). La transaction s'occupe de tout à la fin de la méthode.
     }
 
     // --- MÉTHODES UTILITAIRES PRIVÉES ---
@@ -260,18 +378,33 @@ public class BoardService {
      * @return Le DTO correspondant.
      */
     private BoardResponse mapBoardToBoardResponse(Board board) {
-        // Mapper la liste des entités Participant en une liste de DTOs ParticipantResponse
         List<ParticipantResponse> participantResponses = board.getParticipants().stream()
-                .map(participant -> new ParticipantResponse(participant.getId(), participant.getName()))
+                .map(participant -> {
+                    // Pour chaque participant, on mappe ses entrées de score en DTOs
+                    List<ScoreEntryResponse> scoreResponses = participant.getScoreEntries().stream()
+                            .map(score -> new ScoreEntryResponse(score.getId(), score.getScoreValue(), score.getRoundNumber()))
+                            .collect(Collectors.toList());
+
+                    // On calcule le score total
+                    int totalScore = participant.getScoreEntries().stream()
+                            .mapToInt(ScoreEntry::getScoreValue)
+                            .sum();
+
+                    return new ParticipantResponse(participant.getId(), participant.getName(), totalScore, scoreResponses);
+                })
+                // Trier les participants par score total décroissant
+                .sorted((p1, p2) -> Integer.compare(p2.getTotalScore(), p1.getTotalScore()))
                 .collect(Collectors.toList());
 
         return new BoardResponse(
                 board.getId(),
                 board.getName(),
+                board.getTargetScore(),
+                board.getNumberOfRounds(),
                 board.getCreatedAt(),
                 board.getUpdatedAt(),
                 board.getOwner().getUsername(),
-                participantResponses // Inclure la liste des participants mappés
+                participantResponses
         );
     }
 }

@@ -36,6 +36,13 @@ public class Board {
     @JoinColumn(name = "owner_id", nullable = false) // Définit la colonne de la clé étrangère.
     private User owner;
 
+    @Column(name = "target_score")
+    private Integer targetScore;
+
+    @Column(name = "number_of_rounds")
+    private Integer numberOfRounds;
+
+
     /**
      * La liste des participants associés à ce tableau de scores.
      * C'est une relation Un-à-Plusieurs (un Board a plusieurs Participants).

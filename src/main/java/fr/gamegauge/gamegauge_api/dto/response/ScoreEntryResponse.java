@@ -4,14 +4,11 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.List;
-
 @Getter
 @Setter
 @AllArgsConstructor
-public class ParticipantResponse {
+public class ScoreEntryResponse {
     private Long id;
-    private String name;
-    private int totalScore;
-    private List<ScoreEntryResponse> scores;
+    private int scoreValue;
+    private int roundNumber;
 }

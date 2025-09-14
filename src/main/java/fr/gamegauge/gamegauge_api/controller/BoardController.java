@@ -1,11 +1,9 @@
 package fr.gamegauge.gamegauge_api.controller;
 
-import fr.gamegauge.gamegauge_api.dto.request.BoardCreateRequest;
-import fr.gamegauge.gamegauge_api.dto.request.BoardUpdateRequest;
-import fr.gamegauge.gamegauge_api.dto.request.ParticipantAddRequest;
-import fr.gamegauge.gamegauge_api.dto.request.ParticipantUpdateRequest;
+import fr.gamegauge.gamegauge_api.dto.request.*;
 import fr.gamegauge.gamegauge_api.dto.response.BoardResponse;
 import fr.gamegauge.gamegauge_api.dto.response.ParticipantResponse;
+import fr.gamegauge.gamegauge_api.dto.response.ScoreEntryResponse;
 import fr.gamegauge.gamegauge_api.service.BoardService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -196,5 +194,85 @@ public class BoardController {
         ParticipantResponse updatedParticipant = boardService.updateParticipantInBoard(boardId, participantId, request, userEmail);
 
         return ResponseEntity.ok(updatedParticipant);
+    }
+
+    /**
+     * Endpoint pour ajouter une entrée de score à un participant.
+     * Mappé sur POST /api/boards/{boardId}/participants/{participantId}/scores
+     *
+     * @param boardId        L'ID du tableau.
+     * @param participantId  L'ID du participant.
+     * @param request        Les données du score (valeur et tour).
+     * @param authentication Les infos de l'utilisateur connecté.
+     * @return Le DTO du score créé avec un statut 201 Created.
+     */
+    @PostMapping("/{boardId}/participants/{participantId}/scores")
+    public ResponseEntity<ScoreEntryResponse> addScore(
+            @PathVariable Long boardId,
+            @PathVariable Long participantId,
+            @Valid @RequestBody ScoreEntryAddRequest request,
+            Authentication authentication) {
+
+        String userEmail = authentication.getName();
+        logger.info("Requête POST /api/boards/{}/participants/{}/scores reçue de l'utilisateur {}",
+                boardId, participantId, userEmail);
+
+        ScoreEntryResponse newScore = boardService.addScoreToParticipant(boardId, participantId, request, userEmail);
+
+        return new ResponseEntity<>(newScore, HttpStatus.CREATED);
+    }
+
+    /**
+     * Endpoint pour mettre à jour une entrée de score d'un participant.
+     * Mappé sur PUT /api/boards/{boardId}/participants/{participantId}/scores/{scoreId}
+     *
+     * @param boardId        L'ID du tableau.
+     * @param participantId  L'ID du participant.
+     * @param scoreId        L'ID du score à mettre à jour.
+     * @param request        Les nouvelles données du score.
+     * @param authentication Les infos de l'utilisateur connecté.
+     * @return Le DTO du score mis à jour.
+     */
+    @PutMapping("/{boardId}/participants/{participantId}/scores/{scoreId}")
+    public ResponseEntity<ScoreEntryResponse> updateScore(
+            @PathVariable Long boardId,
+            @PathVariable Long participantId,
+            @PathVariable Long scoreId,
+            @Valid @RequestBody ScoreEntryUpdateRequest request,
+            Authentication authentication) {
+
+        String userEmail = authentication.getName();
+        logger.info("Requête PUT /api/boards/{}/participants/{}/scores/{} reçue de l'utilisateur {}",
+                boardId, participantId, scoreId, userEmail);
+
+        ScoreEntryResponse updatedScore = boardService.updateScore(boardId, participantId, scoreId, request, userEmail);
+
+        return ResponseEntity.ok(updatedScore);
+    }
+
+    /**
+     * Endpoint pour supprimer une entrée de score d'un participant.
+     * Mappé sur DELETE /api/boards/{boardId}/participants/{participantId}/scores/{scoreId}
+     *
+     * @param boardId        L'ID du tableau.
+     * @param participantId  L'ID du participant.
+     * @param scoreId        L'ID du score à supprimer.
+     * @param authentication Les infos de l'utilisateur connecté.
+     * @return Une réponse vide avec un statut 204 No Content.
+     */
+    @DeleteMapping("/{boardId}/participants/{participantId}/scores/{scoreId}")
+    public ResponseEntity<Void> deleteScore(
+            @PathVariable Long boardId,
+            @PathVariable Long participantId,
+            @PathVariable Long scoreId,
+            Authentication authentication) {
+
+        String userEmail = authentication.getName();
+        logger.info("Requête DELETE /api/boards/{}/participants/{}/scores/{} reçue de l'utilisateur {}",
+                boardId, participantId, scoreId, userEmail);
+
+        boardService.deleteScoreFromParticipant(boardId, participantId, scoreId, userEmail);
+
+        return ResponseEntity.noContent().build();
     }
 }

@@ -7,6 +7,8 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Représente un participant (un joueur) dans un tableau de scores spécifique.
@@ -42,4 +44,21 @@ public class Participant {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private Instant updatedAt;
+
+    /**
+     * La liste des entrées de score pour ce participant.
+     * Relation Un-à-Plusieurs.
+     */
+    @OneToMany(
+            mappedBy = "participant",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
+    private List<ScoreEntry> scoreEntries = new ArrayList<>();
+
+    // --- Méthodes utilitaires ---
+    public void addScoreEntry(ScoreEntry scoreEntry) {
+        scoreEntries.add(scoreEntry);
+        scoreEntry.setParticipant(this);
+    }
 }

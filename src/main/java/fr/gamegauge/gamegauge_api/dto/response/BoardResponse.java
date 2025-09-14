@@ -16,6 +16,8 @@ import java.util.List;
 public class BoardResponse {
     private Long id;
     private String name;
+    private Integer targetScore;
+    private Integer numberOfRounds;
     private Instant createdAt;
     private Instant updatedAt;
     private String ownerUsername;

@@ -11,4 +11,6 @@ public class BoardUpdateRequest {
     @NotBlank(message = "Le nom du tableau ne peut pas être vide.")
     @Size(min = 3, max = 100, message = "Le nom doit contenir entre 3 et 100 caractères.")
     private String name;
+    private Integer targetScore;
+    private Integer numberOfRounds;
 }

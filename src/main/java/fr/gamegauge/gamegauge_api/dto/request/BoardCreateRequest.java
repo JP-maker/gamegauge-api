@@ -20,6 +20,6 @@ public class BoardCreateRequest {
     @Size(min = 3, max = 100, message = "Le nom doit contenir entre 3 et 100 caractères.")
     private String name;
 
-    // Nous pourrions ajouter ici le nom du jeu, le score cible, etc.
-    // Pour l'instant, restons simple avec juste le nom.
+    private Integer targetScore;
+    private Integer numberOfRounds;
 }
