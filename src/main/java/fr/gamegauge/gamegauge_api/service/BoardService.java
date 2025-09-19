@@ -25,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -289,38 +290,48 @@ public class BoardService {
      *
      * @param boardId       L'ID du tableau.
      * @param participantId L'ID du participant.
-     * @param scoreId       L'ID de l'entrée de score à mettre à jour.
      * @param request       Les nouvelles données du score.
      * @param userEmail     L'email de l'utilisateur qui effectue l'action.
      * @return Le DTO du score mis à jour.
      */
-    public ScoreEntryResponse updateScore(Long boardId, Long participantId, Long scoreId, ScoreEntryUpdateRequest request, String userEmail) {
-        logger.info("Tentative de mise à jour du score ID {} (nouvelle valeur: {}, nouveau tour: {})",
-                scoreId, request.getScoreValue(), request.getRoundNumber());
+    public ScoreEntryResponse setScoreForParticipant(Long boardId, Long participantId, ScoreEntryAddRequest request, String userEmail) {
+
+        logger.info("Définition du score (valeur: {}, tour: {}) pour le participant ID {} dans le tableau ID {}",
+                request.getScoreValue(), request.getRoundNumber(), participantId, boardId);
 
         User user = getUserByEmail(userEmail);
         Board board = boardRepository.findByIdAndOwner(boardId, user)
-                .orElseThrow(() -> new ResourceNotFoundException("Tableau non trouvé ou accès non autorisé. ID: " + boardId));
+                .orElseThrow(() -> new ResourceNotFoundException("..."));
 
         Participant participant = board.getParticipants().stream()
                 .filter(p -> p.getId().equals(participantId))
                 .findFirst()
-                .orElseThrow(() -> new ResourceNotFoundException("Participant non trouvé dans ce tableau. ID: " + participantId));
+                .orElseThrow(() -> new ResourceNotFoundException("..."));
 
-        ScoreEntry scoreToUpdate = participant.getScoreEntries().stream()
-                .filter(s -> s.getId().equals(scoreId))
-                .findFirst()
-                .orElseThrow(() -> new ResourceNotFoundException("Entrée de score non trouvée pour ce participant. ID: " + scoreId));
+        // NOUVELLE LOGIQUE : Chercher si un score existe déjà pour ce tour
+        Optional<ScoreEntry> existingScoreOpt = participant.getScoreEntries().stream()
+                .filter(s -> s.getRoundNumber() == request.getRoundNumber()) // <-- On se base sur le tour
+                .findFirst();
 
-        // Appliquer les modifications
-        scoreToUpdate.setScoreValue(request.getScoreValue());
-        scoreToUpdate.setRoundNumber(request.getRoundNumber());
+        ScoreEntry scoreToSave;
+        if (existingScoreOpt.isPresent()) {
+            // Si le score existe, on le met à jour
+            logger.debug("Mise à jour du score existant pour le tour {}", request.getRoundNumber());
+            scoreToSave = existingScoreOpt.get();
+            scoreToSave.setScoreValue(request.getScoreValue());
+        } else {
+            // Sinon, on en crée un nouveau
+            logger.debug("Création d'un nouveau score pour le tour {}", request.getRoundNumber());
+            scoreToSave = new ScoreEntry();
+            scoreToSave.setScoreValue(request.getScoreValue());
+            scoreToSave.setRoundNumber(request.getRoundNumber());
+            participant.addScoreEntry(scoreToSave);
+        }
 
-        // Sauvegarder l'entité mise à jour
-        ScoreEntry savedScore = scoreEntryRepository.save(scoreToUpdate);
-        logger.info("Score ID {} mis à jour avec succès.", savedScore.getId());
+        ScoreEntry savedScoreEntry = scoreEntryRepository.save(scoreToSave);
+        logger.info("Score (ID: {}) défini avec succès.", savedScoreEntry.getId());
 
-        return new ScoreEntryResponse(savedScore.getId(), savedScore.getScoreValue(), savedScore.getRoundNumber());
+        return new ScoreEntryResponse(savedScoreEntry.getId(), savedScoreEntry.getScoreValue(), savedScoreEntry.getRoundNumber());
     }
 
     /**

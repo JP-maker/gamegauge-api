@@ -5,6 +5,10 @@ import fr.gamegauge.gamegauge_api.dto.response.BoardResponse;
 import fr.gamegauge.gamegauge_api.dto.response.ParticipantResponse;
 import fr.gamegauge.gamegauge_api.dto.response.ScoreEntryResponse;
 import fr.gamegauge.gamegauge_api.service.BoardService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.apache.logging.log4j.LogManager;
@@ -23,6 +27,8 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/boards") // Chemin de base pour toutes les routes liées aux boards.
 @RequiredArgsConstructor
+@Tag(name = "Boards", description = "Endpoints pour la gestion des tableaux de scores") // Tag pour grouper les endpoints
+@SecurityRequirement(name = "bearerAuth") // Indique que tous les endpoints de ce contrôleur nécessitent une authentification
 public class BoardController {
 
     private static final Logger logger = LogManager.getLogger(BoardController.class);
@@ -35,6 +41,7 @@ public class BoardController {
      * @param authentication L'objet d'authentification de l'utilisateur connecté.
      * @return Une liste des tableaux de scores de l'utilisateur.
      */
+    @Operation(summary = "Lister les tableaux de l'utilisateur", description = "Récupère la liste de tous les tableaux appartenant à l'utilisateur authentifié.")
     @GetMapping
     public ResponseEntity<List<BoardResponse>> getUserBoards(Authentication authentication) {
         String userEmail = authentication.getName();
@@ -73,6 +80,9 @@ public class BoardController {
      *                       contenant les informations de l'utilisateur connecté.
      * @return Le tableau de scores nouvellement créé avec un statut 201 Created.
      */
+    @Operation(summary = "Créer un nouveau tableau de scores", description = "Crée un nouveau tableau pour l'utilisateur authentifié.")
+    @ApiResponse(responseCode = "201", description = "Tableau créé avec succès")
+    @ApiResponse(responseCode = "400", description = "Données de la requête invalides")
     @PostMapping
     public ResponseEntity<BoardResponse> createBoard(@Valid @RequestBody BoardCreateRequest request, Authentication authentication) {
         String userEmail = authentication.getName(); // L'email est le "name" de notre principal.
@@ -206,48 +216,19 @@ public class BoardController {
      * @param authentication Les infos de l'utilisateur connecté.
      * @return Le DTO du score créé avec un statut 201 Created.
      */
-    @PostMapping("/{boardId}/participants/{participantId}/scores")
-    public ResponseEntity<ScoreEntryResponse> addScore(
+    @PutMapping("/{boardId}/participants/{participantId}/scores")
+    public ResponseEntity<ScoreEntryResponse> setScore(
             @PathVariable Long boardId,
             @PathVariable Long participantId,
             @Valid @RequestBody ScoreEntryAddRequest request,
             Authentication authentication) {
-
+        logger.info("Requête PUT /api/boards/{}/participants/{}/scores reçue de l'utilisateur {}",
+                boardId, participantId, authentication.getName());
         String userEmail = authentication.getName();
-        logger.info("Requête POST /api/boards/{}/participants/{}/scores reçue de l'utilisateur {}",
-                boardId, participantId, userEmail);
+        // appeler la nouvelle méthode du service
+        ScoreEntryResponse newScore = boardService.setScoreForParticipant(boardId, participantId, request, userEmail);
 
-        ScoreEntryResponse newScore = boardService.addScoreToParticipant(boardId, participantId, request, userEmail);
-
-        return new ResponseEntity<>(newScore, HttpStatus.CREATED);
-    }
-
-    /**
-     * Endpoint pour mettre à jour une entrée de score d'un participant.
-     * Mappé sur PUT /api/boards/{boardId}/participants/{participantId}/scores/{scoreId}
-     *
-     * @param boardId        L'ID du tableau.
-     * @param participantId  L'ID du participant.
-     * @param scoreId        L'ID du score à mettre à jour.
-     * @param request        Les nouvelles données du score.
-     * @param authentication Les infos de l'utilisateur connecté.
-     * @return Le DTO du score mis à jour.
-     */
-    @PutMapping("/{boardId}/participants/{participantId}/scores/{scoreId}")
-    public ResponseEntity<ScoreEntryResponse> updateScore(
-            @PathVariable Long boardId,
-            @PathVariable Long participantId,
-            @PathVariable Long scoreId,
-            @Valid @RequestBody ScoreEntryUpdateRequest request,
-            Authentication authentication) {
-
-        String userEmail = authentication.getName();
-        logger.info("Requête PUT /api/boards/{}/participants/{}/scores/{} reçue de l'utilisateur {}",
-                boardId, participantId, scoreId, userEmail);
-
-        ScoreEntryResponse updatedScore = boardService.updateScore(boardId, participantId, scoreId, request, userEmail);
-
-        return ResponseEntity.ok(updatedScore);
+        return ResponseEntity.ok(newScore);
     }
 
     /**

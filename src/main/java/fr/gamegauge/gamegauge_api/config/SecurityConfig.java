@@ -12,12 +12,18 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.Arrays;
+import java.util.List;
+
+import static org.springframework.security.config.Customizer.withDefaults;
 
 
 /**
@@ -28,6 +34,15 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final UserDetailsService userDetailsService;
+
+    // Liste des URLs publiques
+    private static final String[] PUBLIC_URLS = {
+            "/api/auth/**",
+            // -- Swagger UI v3 (OpenAPI) --
+            "/v3/api-docs/**",
+            "/swagger-ui/**",
+            "/swagger-ui.html"
+    };
 
     // Mettre à jour le constructeur
     public SecurityConfig(UserDetailsService userDetailsService) {
@@ -70,9 +85,10 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthFilter jwtAuthFilter) throws Exception {
         http
+                .cors(withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers(PUBLIC_URLS).permitAll()
                         .anyRequest().authenticated()
                 )
                 // Configurer la gestion de session pour qu'elle soit stateless.
@@ -83,5 +99,33 @@ public class SecurityConfig {
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    /**
+     * Bean pour configurer la politique CORS de manière globale pour l'application.
+     * C'est ici que nous autorisons notre frontend Angular.
+     *
+     * @return la source de configuration CORS.
+     */
+    @Bean
+    CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        // 2. Spécifier l'origine autorisée (votre application Angular)
+        configuration.setAllowedOrigins(List.of("http://localhost:4200"));
+
+        // 3. Spécifier les méthodes HTTP autorisées (GET, POST, etc.)
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+
+        // 4. Spécifier les en-têtes autorisés
+        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type"));
+
+        // 5. Autoriser les 'credentials' (comme les cookies ou les en-têtes d'autorisation)
+        configuration.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        // Appliquer cette configuration à toutes les routes de notre API
+        source.registerCorsConfiguration("/**", configuration);
+
+        return source;
     }
 }
