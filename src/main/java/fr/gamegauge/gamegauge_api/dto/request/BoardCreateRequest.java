@@ -1,5 +1,6 @@
 package fr.gamegauge.gamegauge_api.dto.request;
 
+import fr.gamegauge.gamegauge_api.model.ScoreCondition;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
@@ -21,5 +22,6 @@ public class BoardCreateRequest {
     private String name;
 
     private Integer targetScore;
+    private ScoreCondition scoreCondition;
     private Integer numberOfRounds;
 }

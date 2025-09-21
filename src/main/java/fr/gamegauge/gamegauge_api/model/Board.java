@@ -39,6 +39,10 @@ public class Board {
     @Column(name = "target_score")
     private Integer targetScore;
 
+    @Enumerated(EnumType.STRING) // Stocke l'enum en tant que chaîne ("HIGHEST_WINS") dans la BDD
+    @Column(name = "score_condition")
+    private ScoreCondition scoreCondition;
+
     @Column(name = "number_of_rounds")
     private Integer numberOfRounds;
 

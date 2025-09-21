@@ -1,5 +1,6 @@
 package fr.gamegauge.gamegauge_api.dto.request;
 
+import fr.gamegauge.gamegauge_api.model.ScoreCondition;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
@@ -12,5 +13,6 @@ public class BoardUpdateRequest {
     @Size(min = 3, max = 100, message = "Le nom doit contenir entre 3 et 100 caractères.")
     private String name;
     private Integer targetScore;
+    private ScoreCondition scoreCondition;
     private Integer numberOfRounds;
 }

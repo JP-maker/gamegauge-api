@@ -81,7 +81,7 @@ class BoardServiceTest {
 
         // 3. Préparer le mock pour quand le service appellera le mapper
         // On crée une fausse réponse que le mapper est censé retourner
-        BoardResponse mockResponse = new BoardResponse(boardId, "Test Board", null, null, null, null, null, null);
+        BoardResponse mockResponse = new BoardResponse(boardId, "Test Board", null, null,null, null, null, null, null);
         when(boardMapper.toBoardResponse(any(Board.class))).thenReturn(mockResponse);
 
         // --- WHEN ---
@@ -106,7 +106,7 @@ class BoardServiceTest {
         when(boardRepository.findByIdAndOwner(boardId, testUser)).thenReturn(Optional.of(testBoard));
 
         // Simuler le mapper
-        BoardResponse mockResponse = new BoardResponse(boardId, "Test Board", null, null, null, null, null, null);
+        BoardResponse mockResponse = new BoardResponse(boardId, "Test Board", null,null, null, null, null, null, null);
         when(boardMapper.toBoardResponse(any(Board.class))).thenReturn(mockResponse);
 
         // --- WHEN ---
@@ -152,7 +152,7 @@ class BoardServiceTest {
 
         // 3. Simuler le mapping vers le DTO de réponse
         BoardResponse mockResponse = new BoardResponse(
-                testBoard.getId(), "Nouveau Tournoi", 500, null, null, null, "testuser", null);
+                testBoard.getId(), "Nouveau Tournoi", 500, null, null,null, null, "testuser", null);
         when(boardMapper.toBoardResponse(any(Board.class))).thenReturn(mockResponse);
 
         // --- WHEN ---

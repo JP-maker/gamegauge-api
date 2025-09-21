@@ -62,6 +62,7 @@ public class BoardService {
         board.setName(request.getName());
         board.setOwner(owner);
         board.setTargetScore(request.getTargetScore());
+        board.setScoreCondition(request.getScoreCondition());
         board.setNumberOfRounds(request.getNumberOfRounds());
 
         // 3. Sauvegarder dans la base de données.
@@ -124,6 +125,7 @@ public class BoardService {
 
         board.setName(request.getName());
         board.setTargetScore(request.getTargetScore());
+        board.setScoreCondition(request.getScoreCondition());
         board.setNumberOfRounds(request.getNumberOfRounds());
 
         Board updatedBoard = boardRepository.save(board);
@@ -411,6 +413,7 @@ public class BoardService {
                 board.getId(),
                 board.getName(),
                 board.getTargetScore(),
+                board.getScoreCondition(),
                 board.getNumberOfRounds(),
                 board.getCreatedAt(),
                 board.getUpdatedAt(),

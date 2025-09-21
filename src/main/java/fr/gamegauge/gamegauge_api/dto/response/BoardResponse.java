@@ -1,5 +1,6 @@
 package fr.gamegauge.gamegauge_api.dto.response;
 
+import fr.gamegauge.gamegauge_api.model.ScoreCondition;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
@@ -17,6 +18,7 @@ public class BoardResponse {
     private Long id;
     private String name;
     private Integer targetScore;
+    private ScoreCondition scoreCondition;
     private Integer numberOfRounds;
     private Instant createdAt;
     private Instant updatedAt;
