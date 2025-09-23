@@ -256,4 +256,19 @@ public class BoardController {
 
         return ResponseEntity.noContent().build();
     }
+
+    /**
+     * Endpoint pour mettre à jour l'ordre d'affichage des tableaux de scores.
+     * Mappé sur PUT /api/boards/order
+     *
+     * @param request        Les nouvelles positions des tableaux.
+     * @param authentication Les infos de l'utilisateur connecté.
+     * @return Une réponse vide avec un statut 200 OK.
+     */
+    @PutMapping("/order")
+    public ResponseEntity<Void> updateBoardsOrder(@RequestBody BoardOrderUpdateRequest request, Authentication authentication) {
+        String userEmail = authentication.getName();
+        boardService.updateBoardsOrder(request, userEmail);
+        return ResponseEntity.ok().build();
+    }
 }

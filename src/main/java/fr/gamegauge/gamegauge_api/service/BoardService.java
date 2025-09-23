@@ -25,7 +25,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -83,7 +85,7 @@ public class BoardService {
         logger.debug("Récupération des tableaux pour l'utilisateur {}", userEmail);
         User owner = getUserByEmail(userEmail);
 
-        List<Board> boards = boardRepository.findByOwner(owner);
+        List<Board> boards = boardRepository.findByOwnerOrderByDisplayOrderAsc(owner);
 
         // On mappe chaque entité Board en BoardResponse
         return boardMapper.toBoardResponseList(boards);
@@ -371,6 +373,26 @@ public class BoardService {
         logger.info("Score ID {} supprimé avec succès.", scoreId);
 
         // Pas besoin d'appeler de .save() ou .delete(). La transaction s'occupe de tout à la fin de la méthode.
+    }
+
+    @Transactional
+    public void updateBoardsOrder(BoardOrderUpdateRequest request, String userEmail) {
+        User owner = getUserByEmail(userEmail);
+        List<Board> boards = boardRepository.findByOwnerOrderByDisplayOrderAsc(owner);
+
+        // Créer une map pour un accès rapide aux tableaux par ID
+        Map<Long, Board> boardMap = boards.stream()
+                .collect(Collectors.toMap(Board::getId, Function.identity()));
+
+        // Mettre à jour l'ordre
+        int order = 0;
+        for (Long boardId : request.getBoardIds()) {
+            Board board = boardMap.get(boardId);
+            if (board != null && board.getOwner().getId().equals(owner.getId())) { // Sécurité
+                board.setDisplayOrder(order++);
+                boardRepository.save(board);
+            }
+        }
     }
 
     // --- MÉTHODES UTILITAIRES PRIVÉES ---

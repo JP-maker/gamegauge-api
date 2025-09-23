@@ -32,4 +32,5 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
      * @return Un Optional contenant le tableau s'il est trouvé.
      */
     Optional<Board> findByIdAndOwner(Long id, User owner);
+    List<Board> findByOwnerOrderByDisplayOrderAsc(User owner);
 }

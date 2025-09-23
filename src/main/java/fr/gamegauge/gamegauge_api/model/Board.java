@@ -46,6 +46,9 @@ public class Board {
     @Column(name = "number_of_rounds")
     private Integer numberOfRounds;
 
+    @Column(name = "display_order")
+    private Integer displayOrder;
+
 
     /**
      * La liste des participants associés à ce tableau de scores.
