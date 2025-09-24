@@ -443,4 +443,42 @@ public class BoardService {
                 participantResponses
         );
     }
+
+    @Transactional
+    public BoardResponse importBoard(BoardImportRequest request, String userEmail) {
+        logger.info("Importation d'un tableau local '{}' pour l'utilisateur {}", request.getName(), userEmail);
+        User owner = getUserByEmail(userEmail);
+
+        // 1. Créer l'entité Board de base
+        Board board = new Board();
+        board.setName(request.getName());
+        board.setOwner(owner);
+        board.setTargetScore(request.getTargetScore());
+        board.setScoreCondition(request.getScoreCondition());
+        board.setNumberOfRounds(request.getNumberOfRounds());
+
+        // 2. Créer les participants et leurs scores
+        if (request.getParticipants() != null) {
+            for (BoardImportRequest.ParticipantImportDto pDto : request.getParticipants()) {
+                Participant participant = new Participant();
+                participant.setName(pDto.getName());
+
+                if (pDto.getScores() != null) {
+                    for (BoardImportRequest.ScoreEntryImportDto sDto : pDto.getScores()) {
+                        ScoreEntry scoreEntry = new ScoreEntry();
+                        scoreEntry.setRoundNumber(sDto.getRoundNumber());
+                        scoreEntry.setScoreValue(sDto.getScoreValue());
+                        participant.addScoreEntry(scoreEntry);
+                    }
+                }
+                board.addParticipant(participant);
+            }
+        }
+
+        // 3. Sauvegarder le tout (la cascade s'occupera des participants et scores)
+        Board savedBoard = boardRepository.save(board);
+        logger.info("Tableau local importé avec succès. Nouvel ID : {}", savedBoard.getId());
+
+        return boardMapper.toBoardResponse(savedBoard);
+    }
 }

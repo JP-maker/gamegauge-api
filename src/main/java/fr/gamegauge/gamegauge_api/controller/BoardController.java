@@ -271,4 +271,19 @@ public class BoardController {
         boardService.updateBoardsOrder(request, userEmail);
         return ResponseEntity.ok().build();
     }
+
+    /**
+     * Endpoint pour importer un tableau de scores à partir d'un JSON.
+     * Mappé sur POST /api/boards/import
+     *
+     * @param request        Les données d'importation du tableau.
+     * @param authentication Les infos de l'utilisateur connecté.
+     * @return Le DTO du tableau importé avec un statut 201 Created.
+     */
+    @PostMapping("/import")
+    public ResponseEntity<BoardResponse> importBoard(@RequestBody BoardImportRequest request, Authentication authentication) {
+        String userEmail = authentication.getName();
+        BoardResponse importedBoard = boardService.importBoard(request, userEmail);
+        return new ResponseEntity<>(importedBoard, HttpStatus.CREATED);
+    }
 }
