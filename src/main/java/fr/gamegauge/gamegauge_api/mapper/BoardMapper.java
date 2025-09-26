@@ -3,6 +3,7 @@ package fr.gamegauge.gamegauge_api.mapper;
 import fr.gamegauge.gamegauge_api.dto.response.BoardResponse;
 import fr.gamegauge.gamegauge_api.dto.response.ParticipantResponse;
 import fr.gamegauge.gamegauge_api.model.Board;
+import fr.gamegauge.gamegauge_api.model.ScoreCondition;
 import org.mapstruct.AfterMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -34,6 +35,26 @@ public interface BoardMapper {
             boardResponse.getParticipants().sort(
                     Comparator.comparingInt(ParticipantResponse::getTotalScore).reversed()
             );
+        }
+    }
+
+    /** 2. TRI PERSONNALISÉ SELON LA CONDITION DE SCORE
+     * Nous avons besoin d'informations supplémentaires (la condition de score)
+     * pour trier correctement les participants.
+     * Comme cette information vient de l'entité source (Board),
+     * nous passons également l'entité source à cette méthode.
+     */
+    @AfterMapping
+    default void sortParticipants(@MappingTarget BoardResponse boardResponse, Board board) {
+        if (boardResponse.getParticipants() != null) {
+            Comparator<fr.gamegauge.gamegauge_api.dto.response.ParticipantResponse> comparator =
+                    Comparator.comparingInt(fr.gamegauge.gamegauge_api.dto.response.ParticipantResponse::getTotalScore);
+
+            if (board.getScoreCondition() != ScoreCondition.LOWEST_WINS) {
+                comparator = comparator.reversed();
+            }
+
+            boardResponse.getParticipants().sort(comparator);
         }
     }
 }
