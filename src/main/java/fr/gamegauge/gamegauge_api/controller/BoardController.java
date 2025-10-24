@@ -286,4 +286,18 @@ public class BoardController {
         BoardResponse importedBoard = boardService.importBoard(request, userEmail);
         return new ResponseEntity<>(importedBoard, HttpStatus.CREATED);
     }
+
+    /**
+     * Endpoint pour redémarrer un tableau de scores (remise à zéro des scores).
+     * Mappé sur POST /api/boards/{boardId}/restart
+     * @param boardId
+     * @param authentication
+     * @return Une réponse vide avec un statut 200 OK.
+     */
+    @PostMapping("/{boardId}/restart")
+    public ResponseEntity<Void> restartBoard(@PathVariable Long boardId, Authentication authentication) {
+        String userEmail = authentication.getName();
+        boardService.restartBoard(boardId, userEmail);
+        return ResponseEntity.ok().build();
+    }
 }
