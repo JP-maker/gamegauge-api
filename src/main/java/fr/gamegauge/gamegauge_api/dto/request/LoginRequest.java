@@ -14,4 +14,6 @@ public class LoginRequest {
 
     @NotBlank(message = "Le mot de passe ne peut pas être vide.")
     private String password;
+
+    private String recaptchaToken;
 }

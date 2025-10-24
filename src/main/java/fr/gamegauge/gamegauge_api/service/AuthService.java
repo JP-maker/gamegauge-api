@@ -9,6 +9,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 // Nouveaux imports
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -22,14 +23,22 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
-    private final AuthenticationManager authenticationManager; // Ajout
+    private final AuthenticationManager authenticationManager;
+    private final RecaptchaService recaptchaService;
 
     // Mettre à jour le constructeur
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService, AuthenticationManager authenticationManager) {
+    public AuthService(
+            UserRepository userRepository,
+            PasswordEncoder passwordEncoder,
+            JwtService jwtService,
+            AuthenticationManager authenticationManager,
+            RecaptchaService recaptchaService
+    ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.authenticationManager = authenticationManager;
+        this.recaptchaService = recaptchaService;
     }
 
     /**
@@ -39,7 +48,10 @@ public class AuthService {
      */
     public void registerUser(RegisterRequest registerRequest) {
         logger.info("Tentative d'inscription pour l'utilisateur : {}", registerRequest.getUsername());
-
+        // VALIDER LE TOKEN RECAPTCHA EN PREMIER
+        if (!recaptchaService.validateToken(registerRequest.getRecaptchaToken())) {
+            throw new IllegalStateException("Validation reCAPTCHA échouée.");
+        }
         try {
             if (userRepository.findByUsername(registerRequest.getUsername()).isPresent()) {
                 logger.warn("Le nom d'utilisateur {} est déjà pris.", registerRequest.getUsername());
@@ -82,7 +94,9 @@ public class AuthService {
      */
     public JwtAuthenticationResponse login(LoginRequest loginRequest) {
         logger.info("Tentative de connexion pour l'utilisateur : {}", loginRequest.getEmail());
-
+        if (!recaptchaService.validateToken(loginRequest.getRecaptchaToken())) {
+            throw new BadCredentialsException("Validation reCAPTCHA échouée.");
+        }
         // 1. Déclencher le mécanisme d'authentification standard de Spring Security
         // S'il y a une erreur (mauvais mot de passe...), une exception sera levée.
         authenticationManager.authenticate(

@@ -37,4 +37,10 @@ public class RegisterRequest {
     @NotBlank(message = "Le mot de passe ne peut pas être vide.")
     @Size(min = 8, max = 120, message = "Le mot de passe doit contenir entre 8 et 120 caractères.")
     private String password;
+
+    /**
+     * Le token reCAPTCHA pour vérifier que la requête provient d'un humain.
+     * Ne doit pas être vide.
+     */
+    private String recaptchaToken;
 }
