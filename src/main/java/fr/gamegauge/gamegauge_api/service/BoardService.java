@@ -501,4 +501,45 @@ public class BoardService {
 
         return boardMapper.toBoardResponse(savedBoard);
     }
+
+    /**
+     * Duplique un tableau de scores existant, en copiant ses participants mais pas leurs scores.
+     *
+     * @param boardId   L'ID du tableau à dupliquer.
+     * @param userEmail L'email de l'utilisateur qui effectue la duplication.
+     * @return Le DTO du nouveau tableau dupliqué.
+     */
+    @Transactional
+    public BoardResponse duplicateBoard(Long boardId, String userEmail) {
+        logger.info("Tentative de duplication du tableau ID {} par l'utilisateur {}", boardId, userEmail);
+        User owner = getUserByEmail(userEmail);
+
+        // 1. Trouver le tableau original et vérifier la propriété
+        Board originalBoard = boardRepository.findByIdAndOwner(boardId, owner)
+                .orElseThrow(() -> new ResourceNotFoundException("Tableau original non trouvé ou accès non autorisé. ID: " + boardId));
+
+        // 2. Créer la nouvelle entité Board (la copie)
+        Board duplicatedBoard = new Board();
+        duplicatedBoard.setName(originalBoard.getName() + " (Copie)"); // Ajouter "(Copie)" pour le distinguer
+        duplicatedBoard.setOwner(owner);
+
+        // Copier les règles de la partie
+        duplicatedBoard.setTargetScore(originalBoard.getTargetScore());
+        duplicatedBoard.setScoreCondition(originalBoard.getScoreCondition());
+        duplicatedBoard.setNumberOfRounds(originalBoard.getNumberOfRounds());
+
+        // 3. Copier les participants (mais PAS les scores)
+        for (Participant originalParticipant : originalBoard.getParticipants()) {
+            Participant newParticipant = new Participant();
+            newParticipant.setName(originalParticipant.getName());
+            // On n'ajoute PAS les scoreEntries, la liste reste vide.
+            duplicatedBoard.addParticipant(newParticipant);
+        }
+
+        // 4. Sauvegarder la nouvelle entité (la cascade s'occupe de sauvegarder les nouveaux participants)
+        Board savedBoard = boardRepository.save(duplicatedBoard);
+        logger.info("Tableau dupliqué avec succès. Nouvel ID : {}", savedBoard.getId());
+
+        return boardMapper.toBoardResponse(savedBoard);
+    }
 }

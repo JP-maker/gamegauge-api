@@ -290,8 +290,8 @@ public class BoardController {
     /**
      * Endpoint pour redémarrer un tableau de scores (remise à zéro des scores).
      * Mappé sur POST /api/boards/{boardId}/restart
-     * @param boardId
-     * @param authentication
+     * @param boardId       L'ID du tableau à redémarrer.
+     * @param authentication Les infos de l'utilisateur connecté.
      * @return Une réponse vide avec un statut 200 OK.
      */
     @PostMapping("/{boardId}/restart")
@@ -299,5 +299,20 @@ public class BoardController {
         String userEmail = authentication.getName();
         boardService.restartBoard(boardId, userEmail);
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Endpoint pour dupliquer un tableau de scores existant.
+     * Mappé sur POST /api/boards/{boardId}/duplicate
+     *
+     * @param boardId        L'ID du tableau à dupliquer.
+     * @param authentication Les infos de l'utilisateur connecté.
+     * @return Le DTO du tableau dupliqué avec un statut 201 Created.
+     */
+    @PostMapping("/{boardId}/duplicate")
+    public ResponseEntity<BoardResponse> duplicateBoard(@PathVariable Long boardId, Authentication authentication) {
+        String userEmail = authentication.getName();
+        BoardResponse duplicatedBoard = boardService.duplicateBoard(boardId, userEmail);
+        return new ResponseEntity<>(duplicatedBoard, HttpStatus.CREATED);
     }
 }
