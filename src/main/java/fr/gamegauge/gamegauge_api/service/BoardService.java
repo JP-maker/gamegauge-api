@@ -381,19 +381,18 @@ public class BoardService {
      * @param boardId   L'ID du tableau à réinitialiser.
      * @param userEmail L'email de l'utilisateur qui doit être le propriétaire.
      */
+    @Transactional
     public void restartBoard(Long boardId, String userEmail) {
         logger.info("Tentative de redémarrage du tableau ID {} par l'utilisateur {}", boardId, userEmail);
         User user = getUserByEmail(userEmail);
-        Board board = boardRepository.findByIdAndOwner(boardId, user)
+        // On vérifie toujours que l'utilisateur est bien le propriétaire avant de supprimer.
+        boardRepository.findByIdAndOwner(boardId, user)
                 .orElseThrow(() -> new ResourceNotFoundException("Tableau non trouvé ou accès non autorisé. ID: " + boardId));
 
-        // Pour chaque participant du tableau, nous allons supprimer tous ses scores.
-        for (Participant participant : board.getParticipants()) {
-            // La méthode `deleteAll` est efficace pour les suppressions en masse.
-            scoreEntryRepository.deleteAll(participant.getScoreEntries());
-            // Vider la collection en mémoire est une bonne pratique
-            participant.getScoreEntries().clear();
-        }
+        // LA CORRECTION : Une seule ligne pour tout supprimer.
+        scoreEntryRepository.deleteAllByParticipantBoardId(boardId);
+
+        logger.info("Tous les scores du tableau ID {} ont été réinitialisés.", boardId);
     }
 
     @Transactional
