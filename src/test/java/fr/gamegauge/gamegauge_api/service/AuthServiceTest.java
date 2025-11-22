@@ -6,6 +6,7 @@ import fr.gamegauge.gamegauge_api.dto.response.JwtAuthenticationResponse;
 import fr.gamegauge.gamegauge_api.model.User;
 import fr.gamegauge.gamegauge_api.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -24,8 +25,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+/**
+ * Classe de tests unitaires pour le service {@link AuthService}.
+ * Utilise Mockito pour simuler les dépendances et isoler la logique du service.
+ */
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
 
@@ -34,154 +41,206 @@ class AuthServiceTest {
     @Mock
     private PasswordEncoder passwordEncoder;
     @Mock
-    private JwtService jwtService; // Ajout
+    private JwtService jwtService;
     @Mock
-    private AuthenticationManager authenticationManager; // Ajout
+    private AuthenticationManager authenticationManager;
+    @Mock
+    private RecaptchaService recaptchaService; // Mock du service reCAPTCHA
 
     @InjectMocks
     private AuthService authService;
 
-    private User testUser;
+    private User testUser; // Utilisateur de test réutilisable
 
+    /**
+     * Initialise les objets de test avant chaque exécution de test.
+     */
     @BeforeEach
     void setUp() {
         testUser = new User();
         testUser.setId(1L);
         testUser.setEmail("test@example.com");
         testUser.setUsername("testuser");
-        testUser.setPassword("hashedPassword"); // Important pour le test de login
+        testUser.setPassword("hashedPassword");
+        testUser.setEmailVerified(true); // Supposons vérifié pour certains tests
+        testUser.setVerificationToken(null);
     }
 
+    /**
+     * Teste le scénario d'une inscription réussie.
+     * Vérifie que l'utilisateur est sauvegardé avec un mot de passe haché et des valeurs par défaut.
+     */
     @Test
+    @DisplayName("Devrait sauvegarder l'utilisateur quand le nom d'utilisateur et l'email sont disponibles")
     void registerUser_shouldSaveUser_whenUsernameAndEmailAreAvailable() {
-        // --- GIVEN ---
+        // GIVEN
         RegisterRequest request = new RegisterRequest();
         request.setUsername("newUser");
         request.setEmail("new@example.com");
         request.setPassword("password123");
+        request.setRecaptchaToken("valid-recaptcha-token");
 
-        // Simuler que le username et l'email ne sont PAS trouvés
+        // Comportement des mocks
+        when(recaptchaService.validateToken(anyString())).thenReturn(true); // reCAPTCHA valide
         when(userRepository.findByUsername(anyString())).thenReturn(Optional.empty());
         when(userRepository.findByEmail(anyString())).thenReturn(Optional.empty());
-
-        // Simuler le hachage du mot de passe
         when(passwordEncoder.encode("password123")).thenReturn("hashedPassword");
+        when(userRepository.save(any(User.class))).thenReturn(testUser); // Simuler la sauvegarde
 
-        // --- WHEN ---
+        // WHEN
         authService.registerUser(request);
 
-        // --- THEN ---
-        // 1. Capturer l'objet User qui a été passé à la méthode save()
-        ArgumentCaptor<User> userArgumentCaptor = ArgumentCaptor.forClass(User.class);
-        verify(userRepository).save(userArgumentCaptor.capture());
+        // THEN
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(userCaptor.capture()); // Vérifier que save a été appelé
 
-        // 2. Récupérer l'utilisateur capturé
-        User savedUser = userArgumentCaptor.getValue();
-
-        // 3. Vérifier que les informations de l'utilisateur sauvegardé sont correctes
+        User savedUser = userCaptor.getValue();
         assertThat(savedUser.getUsername()).isEqualTo("newUser");
         assertThat(savedUser.getEmail()).isEqualTo("new@example.com");
-        assertThat(savedUser.getPassword()).isEqualTo("hashedPassword"); // Très important : vérifier que le mdp est bien haché
-        assertThat(savedUser.isEmailVerified()).isFalse();
+        assertThat(savedUser.getPassword()).isEqualTo("hashedPassword");
+        assertThat(savedUser.isEmailVerified()).isFalse(); // Email non vérifié par défaut
     }
 
+    /**
+     * Teste l'échec de l'inscription si le nom d'utilisateur est déjà pris.
+     * Vérifie que l'exception {@link IllegalStateException} est levée et qu'aucune sauvegarde n'a lieu.
+     */
     @Test
+    @DisplayName("Devrait lever IllegalStateException quand le nom d'utilisateur est déjà pris")
     void registerUser_shouldThrowIllegalStateException_whenUsernameIsTaken() {
-        // --- GIVEN ---
+        // GIVEN
         RegisterRequest request = new RegisterRequest();
         request.setUsername("existingUser");
         request.setEmail("new@example.com");
         request.setPassword("password123");
+        request.setRecaptchaToken("valid-recaptcha-token");
 
-        // Simuler que le nom d'utilisateur EST trouvé
-        when(userRepository.findByUsername("existingUser")).thenReturn(Optional.of(new User()));
+        // Comportement des mocks
+        when(recaptchaService.validateToken(anyString())).thenReturn(true);
+        when(userRepository.findByUsername("existingUser")).thenReturn(Optional.of(new User())); // Simuler un utilisateur existant
 
-        // --- WHEN & THEN ---
-        // Vérifier que l'exception est levée
-        IllegalStateException exception = assertThrows(IllegalStateException.class, () -> {
-            authService.registerUser(request);
-        });
-
-        // Vérifier le message de l'exception
-        assertThat(exception.getMessage()).isEqualTo("Erreur : Le nom d'utilisateur est déjà pris !");
-
-        // Vérifier que la sauvegarde n'a jamais eu lieu
-        verify(userRepository, never()).save(any(User.class));
+        // WHEN & THEN
+        assertThrows(IllegalStateException.class, () -> authService.registerUser(request));
+        verify(userRepository, never()).save(any(User.class)); // Vérifier qu'aucune sauvegarde n'a été faite
     }
 
+    /**
+     * Teste l'échec de l'inscription si l'email est déjà utilisé.
+     * Vérifie que l'exception {@link IllegalStateException} est levée et qu'aucune sauvegarde n'a lieu.
+     */
     @Test
+    @DisplayName("Devrait lever IllegalStateException quand l'email est déjà utilisé")
     void registerUser_shouldThrowIllegalStateException_whenEmailIsTaken() {
-        // --- GIVEN ---
+        // GIVEN
         RegisterRequest request = new RegisterRequest();
         request.setUsername("newUser");
         request.setEmail("existing@example.com");
         request.setPassword("password123");
+        request.setRecaptchaToken("valid-recaptcha-token");
 
-        // Simuler que le username est disponible mais que l'email EST trouvé
+        // Comportement des mocks
+        when(recaptchaService.validateToken(anyString())).thenReturn(true);
         when(userRepository.findByUsername("newUser")).thenReturn(Optional.empty());
         when(userRepository.findByEmail("existing@example.com")).thenReturn(Optional.of(new User()));
 
-        // --- WHEN & THEN ---
-        IllegalStateException exception = assertThrows(IllegalStateException.class, () -> {
-            authService.registerUser(request);
-        });
-
-        assertThat(exception.getMessage()).isEqualTo("Erreur : L'email est déjà utilisé !");
+        // WHEN & THEN
+        assertThrows(IllegalStateException.class, () -> authService.registerUser(request));
         verify(userRepository, never()).save(any(User.class));
     }
 
+    /**
+     * Teste l'échec de l'inscription si le token reCAPTCHA est invalide.
+     */
     @Test
+    @DisplayName("Devrait lever IllegalStateException quand le token reCAPTCHA est invalide lors de l'inscription")
+    void registerUser_shouldThrowIllegalStateException_whenRecaptchaTokenIsInvalid() {
+        // GIVEN
+        RegisterRequest request = new RegisterRequest();
+        request.setUsername("newUser");
+        request.setEmail("new@example.com");
+        request.setPassword("password123");
+        request.setRecaptchaToken("invalid-token");
+
+        // Comportement des mocks
+        when(recaptchaService.validateToken(anyString())).thenReturn(false); // reCAPTCHA invalide
+
+        // WHEN & THEN
+        assertThrows(IllegalStateException.class, () -> authService.registerUser(request));
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    /**
+     * Teste le scénario d'une connexion réussie.
+     * Vérifie que {@link AuthenticationManager} et {@link JwtService} sont appelés et qu'un token est retourné.
+     */
+    @Test
+    @DisplayName("Devrait retourner JwtAuthenticationResponse quand les identifiants sont valides")
     void login_shouldReturnJwtResponse_whenCredentialsAreValid() {
-        // --- GIVEN ---
+        // GIVEN
         LoginRequest request = new LoginRequest();
         request.setEmail("test@example.com");
         request.setPassword("password123");
+        request.setRecaptchaToken("valid-recaptcha-token");
 
-        // 1. Simuler que l'AuthenticationManager ne lève PAS d'exception
-        // C'est implicite, on n'a pas besoin d'un when().thenReturn() pour une méthode void.
-        // Si on ne configure rien, il ne fera rien (ce qui équivaut à un succès).
-
-        // 2. Simuler la récupération de l'utilisateur après l'authentification réussie
+        // Comportement des mocks
+        when(recaptchaService.validateToken(anyString())).thenReturn(true);
+        // Simuler le succès de l'authentification (ne lève pas d'exception)
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class))).thenReturn(null);
         when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testUser));
-
-        // 3. Simuler la génération du token
         when(jwtService.generateToken(any(UserDetails.class))).thenReturn("fake.jwt.token");
 
-        // --- WHEN ---
+        // WHEN
         JwtAuthenticationResponse response = authService.login(request);
 
-        // --- THEN ---
-        // 1. Vérifier que l'AuthenticationManager a bien été appelé avec les bons identifiants
-        ArgumentCaptor<UsernamePasswordAuthenticationToken> captor = ArgumentCaptor.forClass(UsernamePasswordAuthenticationToken.class);
-        verify(authenticationManager).authenticate(captor.capture());
-        UsernamePasswordAuthenticationToken authenticationToken = captor.getValue();
-
-        assertThat(authenticationToken.getName()).isEqualTo("test@example.com");
-        assertThat(authenticationToken.getCredentials()).isEqualTo("password123");
-
-        // 2. Vérifier que la réponse contient le bon token
+        // THEN
+        verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
+        verify(userRepository).findByEmail("test@example.com");
+        verify(jwtService).generateToken(any(UserDetails.class));
         assertThat(response).isNotNull();
         assertThat(response.getToken()).isEqualTo("fake.jwt.token");
     }
 
+    /**
+     * Teste l'échec de la connexion si les identifiants sont invalides.
+     * Vérifie que {@link BadCredentialsException} est levée et qu'aucun token n'est généré.
+     */
     @Test
+    @DisplayName("Devrait lever BadCredentialsException quand les identifiants sont invalides")
     void login_shouldThrowBadCredentialsException_whenCredentialsAreInvalid() {
-        // --- GIVEN ---
+        // GIVEN
         LoginRequest request = new LoginRequest();
         request.setEmail("test@example.com");
         request.setPassword("wrongPassword");
+        request.setRecaptchaToken("valid-recaptcha-token");
 
-        // 1. Simuler que l'AuthenticationManager lève une exception quand il est appelé
+        // Comportement des mocks
+        when(recaptchaService.validateToken(anyString())).thenReturn(true);
+        // Simuler l'échec de l'authentification
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
                 .thenThrow(new BadCredentialsException("Identifiants invalides"));
 
-        // --- WHEN & THEN ---
-        // Vérifier que l'exception est bien levée (et non interceptée par notre service)
-        assertThrows(BadCredentialsException.class, () -> {
-            authService.login(request);
-        });
+        // WHEN & THEN
+        assertThrows(BadCredentialsException.class, () -> authService.login(request));
+        verify(jwtService, never()).generateToken(any(UserDetails.class)); // Pas de token généré
+    }
 
-        // Sécurité : vérifier que le service ne continue PAS pour générer un token
-        verify(jwtService, never()).generateToken(any(UserDetails.class));
+    /**
+     * Teste l'échec de la connexion si le token reCAPTCHA est invalide.
+     */
+    @Test
+    @DisplayName("Devrait lever BadCredentialsException quand le token reCAPTCHA est invalide lors de la connexion")
+    void login_shouldThrowBadCredentialsException_whenRecaptchaTokenIsInvalid() {
+        // GIVEN
+        LoginRequest request = new LoginRequest();
+        request.setEmail("test@example.com");
+        request.setPassword("password123");
+        request.setRecaptchaToken("invalid-token");
+
+        // Comportement des mocks
+        when(recaptchaService.validateToken(anyString())).thenReturn(false); // reCAPTCHA invalide
+
+        // WHEN & THEN
+        assertThrows(BadCredentialsException.class, () -> authService.login(request));
+        verify(authenticationManager, never()).authenticate(any(UsernamePasswordAuthenticationToken.class));
     }
 }

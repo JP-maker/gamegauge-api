@@ -130,10 +130,10 @@ public class BoardService {
         board.setScoreCondition(request.getScoreCondition());
         board.setNumberOfRounds(request.getNumberOfRounds());
 
-        Board updatedBoard = boardRepository.save(board);
-        logger.info("Tableau ID {} mis à jour avec succès.", updatedBoard.getId());
+        //Board updatedBoard = boardRepository.save(board);
+        logger.info("Tableau ID {} mis à jour avec succès.", board.getId());
 
-        return mapBoardToBoardResponse(updatedBoard);
+        return mapBoardToBoardResponse(board);
     }
 
     /**
