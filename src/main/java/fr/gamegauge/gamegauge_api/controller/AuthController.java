@@ -15,6 +15,8 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 /**
  * Contrôleur REST gérant les points d'entrée (endpoints) pour l'authentification.
  * Inclut l'inscription, la connexion, etc.
@@ -68,5 +70,31 @@ public class AuthController {
         // 4. Ajouter un log avant de retourner la réponse
         logger.info("Inscription réussie pour l'utilisateur : {}. Réponse 200 OK envoyée.", registerRequest.getUsername());
         return ResponseEntity.ok(new MessageResponse("Utilisateur enregistré avec succès !"));
+    }
+
+    /**
+     * Endpoint pour initier la procédure de réinitialisation du mot de passe.
+     * Mappé sur la méthode POST à l'URL /api/auth/forgot-password.
+     *
+     * @param body Le corps de la requête contenant l'email de l'utilisateur.
+     * @return une {@link ResponseEntity} avec un message de succès.
+     */
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> body) {
+        authService.forgotPassword(body.get("email"));
+        return ResponseEntity.ok("Si l'email existe, un lien a été envoyé.");
+    }
+
+    /**
+     * Endpoint pour réinitialiser le mot de passe avec un token.
+     * Mappé sur la méthode POST à l'URL /api/auth/reset-password.
+     *
+     * @param body Le corps de la requête contenant le token et le nouveau mot de passe.
+     * @return une {@link ResponseEntity} avec un message de succès.
+     */
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestBody Map<String, String> body) {
+        authService.resetPassword(body.get("token"), body.get("newPassword"));
+        return ResponseEntity.ok("Mot de passe modifié avec succès.");
     }
 }

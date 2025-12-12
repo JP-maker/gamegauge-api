@@ -15,6 +15,9 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.util.UUID;
+
 @Service
 public class AuthService {
 
@@ -25,6 +28,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
     private final RecaptchaService recaptchaService;
+    private EmailService emailService = new EmailService();
 
     // Mettre à jour le constructeur
     public AuthService(
@@ -32,13 +36,15 @@ public class AuthService {
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
             AuthenticationManager authenticationManager,
-            RecaptchaService recaptchaService
+            RecaptchaService recaptchaService,
+            EmailService emailService
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.authenticationManager = authenticationManager;
         this.recaptchaService = recaptchaService;
+        this.emailService = emailService;
     }
 
     /**
@@ -124,5 +130,49 @@ public class AuthService {
         logger.debug("Token JWT généré pour l'utilisateur : {}", user.getEmail());
 
         return new JwtAuthenticationResponse(jwtToken);
+    }
+
+    /**
+     * Gère la demande de réinitialisation de mot de passe.
+     *
+     * @param email L'email de l'utilisateur qui a oublié son mot de passe.
+     */
+    public void forgotPassword(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Email inconnu"));
+
+        // Générer un token unique
+        String token = UUID.randomUUID().toString();
+        user.setResetPasswordToken(token);
+        // Expire dans 30 minutes
+        user.setTokenExpiryDate(LocalDateTime.now().plusMinutes(30));
+
+        userRepository.save(user);
+
+        emailService.sendResetToken(email, token);
+    }
+
+    /**
+     * Réinitialise le mot de passe de l'utilisateur en utilisant le token.
+     *
+     * @param token       Le token de réinitialisation.
+     * @param newPassword Le nouveau mot de passe.
+     */
+    public void resetPassword(String token, String newPassword) {
+        User user = userRepository.findByResetPasswordToken(token)
+                .orElseThrow(() -> new RuntimeException("Token invalide"));
+
+        if (user.getTokenExpiryDate().isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("Token expiré");
+        }
+
+        // Hash du nouveau mot de passe
+        user.setPassword(passwordEncoder.encode(newPassword));
+
+        // On nettoie le token pour qu'il ne serve qu'une fois
+        user.setResetPasswordToken(null);
+        user.setTokenExpiryDate(null);
+
+        userRepository.save(user);
     }
 }

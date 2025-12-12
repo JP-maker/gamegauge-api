@@ -6,6 +6,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDateTime;
+
 /**
  * Représente un utilisateur dans le système GameGauge.
  * Cette classe est une entité JPA mappée à la table "users" dans la base de données.
@@ -61,5 +63,19 @@ public class User {
      */
     @Column(name = "verification_token")
     private String verificationToken;
+
+    /**
+     * Le jeton (token) utilisé pour la réinitialisation du mot de passe.
+     * Devient nul une fois le mot de passe réinitialisé ou après expiration.
+     */
+    @Column(name = "reset_password_token")
+    private String resetPasswordToken;
+
+    /**
+     * La date et l'heure d'expiration du jeton de réinitialisation du mot de passe.
+     * Permet de s'assurer que le jeton n'est valide que pour une période limitée.
+     */
+    @Column(name = "token_expiry_date")
+    private LocalDateTime tokenExpiryDate;
 
 }

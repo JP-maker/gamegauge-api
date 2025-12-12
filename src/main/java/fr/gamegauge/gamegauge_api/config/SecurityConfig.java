@@ -41,7 +41,8 @@ public class SecurityConfig {
             // -- Swagger UI v3 (OpenAPI) --
             "/v3/api-docs/**",
             "/swagger-ui/**",
-            "/swagger-ui.html"
+            "/swagger-ui.html",
+            "/api/auth/**"
     };
 
     // Mettre à jour le constructeur
