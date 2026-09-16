@@ -7,7 +7,9 @@ on:
     branches: [main]
 
 env:
-  IMAGE_NAME: ghcr.io/${{ github.repository }}
+  # Nom en minuscules : les registres Docker refusent les majuscules,
+  # or le compte GitHub s'écrit "JP-maker".
+  IMAGE_NAME: ghcr.io/jp-maker/gamegauge-api
 
 jobs:
   # ---------------------------------------------------------------
@@ -51,6 +53,11 @@ jobs:
           distribution: temurin
           java-version: 21
           cache: maven
+
+      # Le fichier mvnw est versionné sans le bit exécutable :
+      # sans ce chmod, le runner renvoie "Permission denied".
+      - name: Rendre le wrapper Maven exécutable
+        run: chmod +x ./mvnw
 
       - name: Build + tests Maven
         run: ./mvnw -B verify
