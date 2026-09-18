@@ -30,7 +30,7 @@ public class AuthService {
     private final RecaptchaService recaptchaService;
     private EmailService emailService = new EmailService();
 
-    // Mettre à jour le constructeur
+    // Mettre à jour le constructor
     public AuthService(
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
